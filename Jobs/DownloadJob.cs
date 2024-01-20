@@ -1,6 +1,7 @@
 using Devil7Softwares.TeraboxDownloader.Database;
 using Devil7Softwares.TeraboxDownloader.Database.Models;
 using Devil7Softwares.TeraboxDownloader.Enums;
+using Devil7Softwares.TeraboxDownloader.Terabox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Quartz;
@@ -10,11 +11,13 @@ namespace Devil7Softwares.TeraboxDownloader.Jobs;
 internal class DownloadJob : IJob
 {
     private readonly DataContext _dataContext;
+    private readonly IJobDownloaderFactory _jobDownloaderFactory;
     private readonly ILogger<DownloadJob> _logger;
 
-    public DownloadJob(ILogger<DownloadJob> logger, DataContext dataContext)
+    public DownloadJob(ILogger<DownloadJob> logger, DataContext dataContext, IJobDownloaderFactory jobDownloaderFactory)
     {
         _dataContext = dataContext;
+        _jobDownloaderFactory = jobDownloaderFactory;
         _logger = logger;
     }
 
@@ -37,9 +40,9 @@ internal class DownloadJob : IJob
 
         try
         {
-            // TODO: Download files
+            JobDownloader downloader = _jobDownloaderFactory.Create(job, context.CancellationToken);
 
-            job.Status = JobStatus.Completed;
+            await downloader.DownloadAsync();
         }
         catch (Exception ex)
         {

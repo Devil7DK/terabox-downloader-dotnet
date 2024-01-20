@@ -1,10 +1,10 @@
 ﻿using Devil7Softwares.TeraboxDownloader.Database;
+using Devil7Softwares.TeraboxDownloader.Terabox;
 using Devil7Softwares.TeraboxDownloader.Enums;
 using Devil7Softwares.TeraboxDownloader.Jobs;
 using Devil7Softwares.TeraboxDownloader.Telegram;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Quartz;
 using Telegram.Bot.Polling;
 
@@ -32,22 +32,32 @@ public class Program
          .AddDbContext<DataContext>()
          .AddSingleton<IUpdateHandler, UpdateHandler>()
          .AddSingleton<IBot, Bot>()
-         .AddQuartz((options) =>
+         .AddSingleton<TeraboxDownloaderDotNetResolver>()
+         .AddSingleton<UrlResolverFactory>(services => downloadMethod =>
          {
-             options.UseDefaultThreadPool((tp) =>
+             return downloadMethod switch
              {
-                 tp.MaxConcurrency = configuration.MaxConcurrentDownloads;
-             });
-
-             options.AddJob<DownloadJob>((job) =>
-             {
-                 job.WithIdentity("DownloadJob").StoreDurably(true);
-             });
-
-             options.UseInMemoryStore();
+                 DownloadMethod.TeraboxDownloaderDotNet => services.GetRequiredService<TeraboxDownloaderDotNetResolver>(),
+                 _ => throw new NotSupportedException($"Download method {downloadMethod} is not supported")
+             };
          })
-         .AddTransient<DownloadJob>()
-         .BuildServiceProvider();
+        .AddSingleton<IJobDownloaderFactory, JobDownloaderFactory>()
+        .AddQuartz((options) =>
+        {
+            options.UseDefaultThreadPool((tp) =>
+            {
+                tp.MaxConcurrency = configuration.MaxConcurrentDownloads;
+            });
+
+            options.AddJob<DownloadJob>((job) =>
+            {
+                job.WithIdentity("DownloadJob").StoreDurably(true);
+            });
+
+            options.UseInMemoryStore();
+        })
+        .AddTransient<DownloadJob>()
+        .BuildServiceProvider();
 
         Utils.Logging.LoggerFactory = services.GetRequiredService<ILoggerFactory>();
 

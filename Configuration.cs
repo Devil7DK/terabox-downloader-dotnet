@@ -5,9 +5,17 @@ using Microsoft.Extensions.Logging;
 
 internal interface IConfiguration
 {
+    public bool IsProduction { get; }
+    public bool IsDevelopment { get; }
+    public LogLevel LogLevel { get; }
     public List<string> AllowedUsers { get; }
     public string DatabasePath { get; }
     public string TelegramBotToken { get; }
+    public int MaxConcurrentDownloads { get; }
+    public string UserAgent { get; }
+    public bool ChunkedDownload { get; }
+    public int ChunkCount { get; }
+    public string DownloadsPath { get; }
 }
 
 internal class Configuration : IConfiguration
@@ -19,6 +27,10 @@ internal class Configuration : IConfiguration
     public string DatabasePath { get; }
     public string TelegramBotToken { get; }
     public int MaxConcurrentDownloads { get; }
+    public string UserAgent { get; }
+    public bool ChunkedDownload { get; }
+    public int ChunkCount { get; }
+    public string DownloadsPath { get; }
 
     public Configuration()
     {
@@ -33,7 +45,17 @@ internal class Configuration : IConfiguration
         AllowedUsers = (Environment.GetEnvironmentVariable("ALLOWED_USERS") ?? "").Split(',').ToList();
         DatabasePath = Environment.GetEnvironmentVariable("DATABASE_PATH") ?? "database.db";
         TelegramBotToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN") ?? "";
+
         MaxConcurrentDownloads = int.TryParse(Environment.GetEnvironmentVariable("MAX_CONCURRENT_DOWNLOADS") ?? "", out int maxConcurrentDownloads) ? maxConcurrentDownloads : 1;
+        UserAgent = Environment.GetEnvironmentVariable("USER_AGENT") ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";
+        ChunkedDownload = bool.TryParse(Environment.GetEnvironmentVariable("CHUNKED_DOWNLOAD") ?? "", out bool chunkedDownload) ? chunkedDownload : false;
+        ChunkCount = int.TryParse(Environment.GetEnvironmentVariable("CHUNK_COUNT") ?? "", out int chunkCount) ? chunkCount : 1;
+        DownloadsPath = Environment.GetEnvironmentVariable("DOWNLOADS_PATH") ?? "downloads";
+
+        if (!Directory.Exists(DownloadsPath))
+        {
+            Directory.CreateDirectory(DownloadsPath);
+        }
 
         ValidationResult result = new ConfigurationValidator().Validate(this);
 

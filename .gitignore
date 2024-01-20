@@ -47,3 +47,6 @@ msbuild.wrn
 
 # Database files
 *.db*
+
+# Downloads
+downloads/
