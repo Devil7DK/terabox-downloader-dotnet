@@ -211,6 +211,8 @@ internal class JobDownloader
             _logger.LogWarning(ex, "Failed to save downloaded file list");
         }
 
+        await UpdateStatus(JobStatus.InProgress, "Uploading file");
+
         try
         {
             await using (Stream fileStream = System.IO.File.OpenRead(filePath))
