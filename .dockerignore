@@ -52,4 +52,5 @@ msbuild.wrn
 downloads/
 
 # Scripts
+build.sh
 *_host
