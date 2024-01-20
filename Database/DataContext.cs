@@ -1,3 +1,4 @@
+using Devil7Softwares.TeraboxDownloader.Terabox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
@@ -38,7 +39,7 @@ internal class DataContext : DbContext
         modelBuilder.Entity<Models.JobEntity>().HasOne(x => x.Chat).WithMany(x => x.Jobs).HasForeignKey(x => x.ChatId);
         modelBuilder.Entity<Models.JobEntity>().Property(x => x.DownloadedFiles).HasConversion(
             x => JsonConvert.SerializeObject(x),
-            x => JsonConvert.DeserializeObject<List<Downloader.DownloadedFile>>(x) ?? new()
+            x => JsonConvert.DeserializeObject<List<DownloadedFile>>(x) ?? new()
         );
     }
 }

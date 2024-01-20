@@ -1,4 +1,4 @@
-namespace Devil7Softwares.TeraboxDownloader.Downloader;
+namespace Devil7Softwares.TeraboxDownloader.Terabox;
 
 internal class DownloadedFile
 {
