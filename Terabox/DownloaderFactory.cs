@@ -234,6 +234,16 @@ internal class JobDownloader
             _logger.LogWarning(ex, "Failed to delete status message");
         }
 
-        await UpdateStatus(JobStatus.Completed);
+
+        try
+        {
+            _job.Status = JobStatus.Completed;
+
+            await _dataContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to mark job as completed");
+        }
     }
 }
