@@ -11,6 +11,7 @@ internal interface IConfiguration
     public List<string> AllowedUsers { get; }
     public string DatabasePath { get; }
     public string TelegramBotToken { get; }
+    public string? TelegramBotApiUrl { get; }
     public int MaxConcurrentDownloads { get; }
     public string UserAgent { get; }
     public bool ChunkedDownload { get; }
@@ -26,6 +27,7 @@ internal class Configuration : IConfiguration
     public List<string> AllowedUsers { get; }
     public string DatabasePath { get; }
     public string TelegramBotToken { get; }
+    public string? TelegramBotApiUrl { get; }
     public int MaxConcurrentDownloads { get; }
     public string UserAgent { get; }
     public bool ChunkedDownload { get; }
@@ -45,6 +47,7 @@ internal class Configuration : IConfiguration
         AllowedUsers = (Environment.GetEnvironmentVariable("ALLOWED_USERS") ?? "").Split(',').ToList();
         DatabasePath = Environment.GetEnvironmentVariable("DATABASE_PATH") ?? "database.db";
         TelegramBotToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN") ?? "";
+        TelegramBotApiUrl = Environment.GetEnvironmentVariable("TELEGRAM_BOT_API_URL");
 
         MaxConcurrentDownloads = int.TryParse(Environment.GetEnvironmentVariable("MAX_CONCURRENT_DOWNLOADS") ?? "", out int maxConcurrentDownloads) ? maxConcurrentDownloads : 1;
         UserAgent = Environment.GetEnvironmentVariable("USER_AGENT") ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";

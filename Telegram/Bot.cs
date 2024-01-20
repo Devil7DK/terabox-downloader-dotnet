@@ -30,7 +30,10 @@ internal class Bot : IBot
         _updateHandler = updateHandler;
 
         _logger.LogDebug("Creating TelegramBotClient");
-        Client = new TelegramBotClient(_configuration.TelegramBotToken);
+
+        TelegramBotClientOptions clientOptions = new TelegramBotClientOptions(_configuration.TelegramBotToken, _configuration.TelegramBotApiUrl);
+
+        Client = new TelegramBotClient(clientOptions);
 
         _logger.LogDebug("Getting bot info");
         var me = Client.GetMeAsync().Result;
