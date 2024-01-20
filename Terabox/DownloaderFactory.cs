@@ -219,6 +219,17 @@ internal class JobDownloader
             {
                 await _bot.Client.SendDocumentAsync(_job.ChatId, InputFile.FromStream(fileStream, resolvedUrl.FileName), replyToMessageId: _job.MessageId, cancellationToken: _cancellationToken);
             }
+
+            _logger.LogInformation("File uploaded successfully for {url}", _job.Url);
+
+            try
+            {
+                System.IO.File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete file after upload");
+            }
         }
         catch (Exception ex)
         {
