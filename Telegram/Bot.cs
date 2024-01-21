@@ -1,6 +1,8 @@
+using Devil7Softwares.TeraboxDownloader.Telegram.Commands;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 
 namespace Devil7Softwares.TeraboxDownloader.Telegram;
 
@@ -41,6 +43,13 @@ internal class Bot : IBot
         _logger.LogDebug($"Bot id: {me.Id}");
         _logger.LogDebug($"Bot name: {me.FirstName}");
         _logger.LogDebug($"Bot username: {me.Username}");
+
+        _logger.LogDebug("Setting my commands for bot");
+        Client.SetMyCommandsAsync(TelegramBotCommand.Commands.Select(command => new BotCommand()
+        {
+            Command = command.Command,
+            Description = command.Description
+        })).Wait();
     }
 
     public void Start()
