@@ -6,6 +6,7 @@ using Devil7Softwares.TeraboxDownloader.Enums;
 using Devil7Softwares.TeraboxDownloader.Telegram;
 using Devil7Softwares.TeraboxDownloader.Utils;
 using Downloader;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -14,29 +15,37 @@ namespace Devil7Softwares.TeraboxDownloader.Terabox;
 
 internal interface IJobDownloaderFactory
 {
-    public JobDownloader Create(JobEntity job, CancellationToken cancellationToken);
+    public Task<JobDownloader> Create(Guid jobId, CancellationToken cancellationToken);
 }
 
 internal class JobDownloaderFactory : IJobDownloaderFactory
 {
     private readonly IBot _bot;
     private readonly IConfiguration _configuration;
-    private readonly DataContext _dataContext;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<JobDownloader> _logger;
     private readonly UrlResolverFactory _urlResolverFactory;
 
-    public JobDownloaderFactory(IBot bot, IConfiguration configuration, ILogger<JobDownloader> logger, UrlResolverFactory urlResolverFactory, DataContext dataContext)
+    public JobDownloaderFactory(IBot bot, IConfiguration configuration, ILogger<JobDownloader> logger, UrlResolverFactory urlResolverFactory, IDbContextFactory<DataContext> dbContextFactory)
     {
         _bot = bot;
         _configuration = configuration;
-        _dataContext = dataContext;
+        _dbContextFactory = dbContextFactory;
         _logger = logger;
         _urlResolverFactory = urlResolverFactory;
     }
 
-    public JobDownloader Create(JobEntity job, CancellationToken cancellationToken)
+    public async Task<JobDownloader> Create(Guid jobId, CancellationToken cancellationToken)
     {
-        return new JobDownloader(_bot, _dataContext, _configuration, _logger, _urlResolverFactory, job, cancellationToken);
+        DataContext dataContext = _dbContextFactory.CreateDbContext();
+        JobEntity? job = await dataContext.Jobs
+            .Include((job) => job.Chat)
+            .ThenInclude((chat) => chat!.Config)
+            .FirstOrDefaultAsync((job) => job.Id == jobId);
+
+        if (job is null) throw new ArgumentException($"Job with id {jobId} not found", nameof(jobId));
+
+        return new JobDownloader(_bot, dataContext, _configuration, _logger, _urlResolverFactory, job, cancellationToken);
     }
 }
 

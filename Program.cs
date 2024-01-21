@@ -30,6 +30,7 @@ public class Program
              options.SetMinimumLevel(configuration.LogLevel);
          })
          .AddDbContext<DataContext>()
+         .AddDbContextFactory<DataContext>()
          .AddSingleton<IUpdateHandler, UpdateHandler>()
          .AddSingleton<IBot, Bot>()
          .AddSingleton<TeraboxDownloaderDotNetResolver>()

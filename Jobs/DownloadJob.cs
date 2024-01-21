@@ -1,21 +1,25 @@
 using Devil7Softwares.TeraboxDownloader.Database;
 using Devil7Softwares.TeraboxDownloader.Database.Models;
 using Devil7Softwares.TeraboxDownloader.Enums;
+using Devil7Softwares.TeraboxDownloader.Telegram;
 using Devil7Softwares.TeraboxDownloader.Terabox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Quartz;
+using Telegram.Bot;
 
 namespace Devil7Softwares.TeraboxDownloader.Jobs;
 
 internal class DownloadJob : IJob
 {
+    private readonly IBot _bot;
     private readonly DataContext _dataContext;
     private readonly IJobDownloaderFactory _jobDownloaderFactory;
     private readonly ILogger<DownloadJob> _logger;
 
-    public DownloadJob(ILogger<DownloadJob> logger, DataContext dataContext, IJobDownloaderFactory jobDownloaderFactory)
+    public DownloadJob(IBot bot, ILogger<DownloadJob> logger, DataContext dataContext, IJobDownloaderFactory jobDownloaderFactory)
     {
+        _bot = bot;
         _dataContext = dataContext;
         _jobDownloaderFactory = jobDownloaderFactory;
         _logger = logger;
@@ -40,7 +44,7 @@ internal class DownloadJob : IJob
 
         try
         {
-            JobDownloader downloader = _jobDownloaderFactory.Create(job, context.CancellationToken);
+            JobDownloader downloader = await _jobDownloaderFactory.Create(jobId, context.CancellationToken);
 
             await downloader.DownloadAsync();
         }
@@ -49,6 +53,8 @@ internal class DownloadJob : IJob
             job.Status = JobStatus.Failed;
 
             _logger.LogError(ex, "Failed to download files");
+
+            await _bot.Client.SendTextMessageAsync(job.Chat!.Id, $"URL: {job.Url}\nStatus: Failed - {ex.Message}", cancellationToken: context.CancellationToken);
         }
         finally
         {
@@ -56,24 +62,24 @@ internal class DownloadJob : IJob
         }
     }
 
-    public static async Task ScheduleJob(ISchedulerFactory schedulerFactory, JobEntity job)
+    public static async Task ScheduleJob(ISchedulerFactory schedulerFactory, Guid jobId)
     {
         IScheduler scheduler = await schedulerFactory.GetScheduler();
 
-        await ScheduleJob(scheduler, job);
+        await ScheduleJob(scheduler, jobId);
     }
 
-    public static async Task ScheduleJob(IScheduler scheduler, JobEntity job)
+    public static async Task ScheduleJob(IScheduler scheduler, Guid jobId)
     {
         ILogger logger = Utils.Logging.CreateLogger<DownloadJob>();
 
         JobDataMap jobDataMap = new JobDataMap
         {
-            { "Job", job.Id }
+            { "Job", jobId }
         };
 
         await scheduler.TriggerJob(new JobKey("DownloadJob"), jobDataMap);
-        logger.LogInformation($"Scheduled job {job.Id}");
+        logger.LogInformation($"Scheduled job {jobId}");
     }
 
     public static async Task ScheduleExistingJobs(ISchedulerFactory schedulerFactory, IEnumerable<JobEntity> jobs)
@@ -82,7 +88,7 @@ internal class DownloadJob : IJob
 
         foreach (JobEntity job in jobs)
         {
-            await ScheduleJob(scheduler, job);
+            await ScheduleJob(scheduler, job.Id);
         }
     }
 }

@@ -18,14 +18,14 @@ namespace Devil7Softwares.TeraboxDownloader.Telegram;
 internal class UpdateHandler : IUpdateHandler
 {
     private readonly IConfiguration _configuration;
-    private readonly DataContext _dataContext;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<UpdateHandler> _logger;
     private readonly ISchedulerFactory _schedulerFactory;
 
-    public UpdateHandler(IConfiguration configuration, ILogger<UpdateHandler> logger, DataContext dataContext, ISchedulerFactory schedulerFactory)
+    public UpdateHandler(IConfiguration configuration, ILogger<UpdateHandler> logger, IDbContextFactory<DataContext> dbContextFactory, ISchedulerFactory schedulerFactory)
     {
         _configuration = configuration;
-        _dataContext = dataContext;
+        _dbContextFactory = dbContextFactory;
         _logger = logger;
         _schedulerFactory = schedulerFactory;
     }
@@ -56,6 +56,8 @@ internal class UpdateHandler : IUpdateHandler
 
     public async Task HandleMessageAsync(ITelegramBotClient botClient, Update update, Message message, CancellationToken cancellationToken)
     {
+        DataContext dataContext = _dbContextFactory.CreateDbContext();
+
         _logger.LogInformation($"Received message from {message.Chat.Id} ({message.Chat.Type})");
 
         User? user = update.Type switch
@@ -90,7 +92,7 @@ internal class UpdateHandler : IUpdateHandler
         if (message.Chat.Type == ChatType.Private)
         {
             _logger.LogDebug($"Fetching chat {message.Chat.Id}");
-            ChatEntity? chat = _dataContext.Chats.Include(x => x.Config).FirstOrDefault(x => x.Id == message.Chat.Id);
+            ChatEntity? chat = dataContext.Chats.Include(x => x.Config).FirstOrDefault(x => x.Id == message.Chat.Id);
 
             if (chat is null && message.Text != "/start")
             {
@@ -110,7 +112,7 @@ internal class UpdateHandler : IUpdateHandler
                 {
                     if (message.Text == command.Command)
                     {
-                        await command.Action(botClient, update, message, user, _dataContext, chat!, cancellationToken);
+                        await command.Action(botClient, update, message, user, dataContext, chat!, cancellationToken);
                         return;
                     }
                 }
@@ -183,13 +185,13 @@ internal class UpdateHandler : IUpdateHandler
                         Status = JobStatus.Queued,
                     };
 
-                    _dataContext.Jobs.Add(job);
+                    dataContext.Jobs.Add(job);
 
-                    await _dataContext.SaveChangesAsync();
+                    await dataContext.SaveChangesAsync();
 
                     _logger.LogInformation($"Added job for url: {url}");
 
-                    await DownloadJob.ScheduleJob(_schedulerFactory, job);
+                    await DownloadJob.ScheduleJob(_schedulerFactory, job.Id);
                 }
                 catch (Exception ex)
                 {
