@@ -7,6 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using Telegram.Bot.Polling;
+using Microsoft.EntityFrameworkCore;
+using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 
 namespace Devil7Softwares.TeraboxDownloader;
 
@@ -74,6 +77,41 @@ public class Program
 
         logger.LogDebug("Initializing scheduler");
         ISchedulerFactory schedulerFactory = services.GetRequiredService<ISchedulerFactory>();
+
+        logger.LogInformation("Reseting interrupted in progress jobs");
+        await dataContext.Jobs.Where((job) => job.Status == JobStatus.InProgress).ForEachAsync(async (job) =>
+        {
+            logger.LogDebug($"Resetting job {job.Id}");
+            job.Status = JobStatus.Queued;
+            await dataContext.SaveChangesAsync();
+
+            try
+            {
+                await bot.Client.EditMessageTextAsync(job.ChatId, job.StatusMessageId, $"URL: {job.Url}\nStatus: Queued");
+            }
+            catch (ApiRequestException ex) when (ex.Message.Contains("message to edit not found"))
+            {
+                logger.LogWarning(ex, "Failed to edit message for job {job.Id}, deleting job", job.Id);
+
+                dataContext.Jobs.Remove(job);
+                await dataContext.SaveChangesAsync();
+
+                try
+                {
+                    await bot.Client.SendTextMessageAsync(job.ChatId, $"Failed to edit message for job {job.Id}, deleting job");
+                }
+                catch (Exception ex1)
+                {
+                    logger.LogWarning(ex1, $"Failed to send message for job {job.Id}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, $"Failed to edit message for job {job.Id}");
+            }
+
+            await Task.Delay(200);
+        });
 
         logger.LogInformation("Scheduling existing jobs");
 
