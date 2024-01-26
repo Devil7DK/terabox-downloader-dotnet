@@ -19,4 +19,15 @@ internal static class JobCommands
             text: $"Queued: {queued}\nFailed: {failed}\nCompleted: {completed}\nIn Progress: {inProgress}"
         );
     });
+
+    public static TelegramBotCommand Cleanup = new TelegramBotCommand("/cleanup", "Cleanup all jobs for this chat", async (client, update, message, user, dataContext, chat, cancellationToken) =>
+    {
+        int deleted = await dataContext.Jobs.Where(x => x.ChatId == chat.Id && x.Status != JobStatus.InProgress).ExecuteDeleteAsync(cancellationToken);
+
+        await client.SendTextMessageAsync(
+            chatId: message.Chat.Id,
+            replyToMessageId: message.MessageId,
+            text: $"Deleted {deleted} jobs"
+        );
+    });
 }
