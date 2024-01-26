@@ -29,36 +29,58 @@ internal class DownloadJob : IJob
     {
         Guid jobId = context.Trigger.JobDataMap.GetGuid("Job");
 
-        _logger.LogInformation($"Executing job {jobId}");
-
-        JobEntity? job = await _dataContext.Jobs
-            .Include((job) => job.Chat)
-            .ThenInclude((chat) => chat!.Config)
-            .FirstOrDefaultAsync((job) => job.Id == jobId);
-
-        if (job is null)
-        {
-            _logger.LogError("Job with id {JobId} not found", jobId);
-            return;
-        }
-
         try
         {
-            JobDownloader downloader = await _jobDownloaderFactory.Create(jobId, context.CancellationToken);
+            _logger.LogInformation($"Executing job {jobId}");
 
-            await downloader.DownloadAsync();
+            JobEntity? job = await _dataContext.Jobs
+                .Include((job) => job.Chat)
+                .ThenInclude((chat) => chat!.Config)
+                .FirstOrDefaultAsync((job) => job.Id == jobId);
+
+            if (context.CancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation($"Job {jobId} cancelled");
+                try
+                {
+                    job!.Status = JobStatus.Cancelled;
+                    await _dataContext.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to update job status");
+                }
+                return;
+            }
+
+            if (job is null)
+            {
+                _logger.LogError("Job with id {JobId} not found", jobId);
+                return;
+            }
+
+            try
+            {
+                JobDownloader downloader = await _jobDownloaderFactory.Create(jobId, context.CancellationToken);
+
+                await downloader.DownloadAsync();
+            }
+            catch (Exception ex)
+            {
+                job.Status = JobStatus.Failed;
+
+                _logger.LogError(ex, "Failed to download files");
+
+                await _bot.Client.SendTextMessageAsync(job.Chat!.Id, $"URL: {job.Url}\nStatus: Failed - {ex.Message}", cancellationToken: context.CancellationToken);
+            }
+            finally
+            {
+                await _dataContext.SaveChangesAsync();
+            }
         }
         catch (Exception ex)
         {
-            job.Status = JobStatus.Failed;
-
-            _logger.LogError(ex, "Failed to download files");
-
-            await _bot.Client.SendTextMessageAsync(job.Chat!.Id, $"URL: {job.Url}\nStatus: Failed - {ex.Message}", cancellationToken: context.CancellationToken);
-        }
-        finally
-        {
-            await _dataContext.SaveChangesAsync();
+            _logger.LogError(ex, "Failed to execute job {JobId}", jobId);
         }
     }
 

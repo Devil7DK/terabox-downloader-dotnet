@@ -6,4 +6,5 @@ internal enum JobStatus
     InProgress,
     Completed,
     Failed,
+    Cancelled
 }

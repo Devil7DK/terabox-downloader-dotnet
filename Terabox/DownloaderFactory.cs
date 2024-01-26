@@ -94,6 +94,11 @@ internal class JobDownloader
 
     private async Task UpdateStatus(JobStatus jobStatus, string? statusMessage = null)
     {
+        if (_cancellationToken.IsCancellationRequested && jobStatus != JobStatus.Cancelled && jobStatus != JobStatus.Failed)
+        {
+            return;
+        }
+
         try
         {
             string status = jobStatus switch
@@ -226,7 +231,14 @@ internal class JobDownloader
         {
             await using (Stream fileStream = System.IO.File.OpenRead(filePath))
             {
-                await _bot.Client.SendDocumentAsync(_job.ChatId, InputFile.FromStream(fileStream, resolvedUrl.FileName), replyToMessageId: _job.MessageId, cancellationToken: _cancellationToken);
+                await _bot.Client.SendDocumentAsync(
+                    _job.ChatId,
+                    InputFile.FromStream(fileStream, resolvedUrl.FileName),
+                    replyToMessageId: _job.MessageId,
+                    cancellationToken: _cancellationToken,
+                    disableContentTypeDetection: true,
+                    allowSendingWithoutReply: true
+                );
             }
 
             _logger.LogInformation("File uploaded successfully for {url}", _job.Url);
@@ -256,10 +268,9 @@ internal class JobDownloader
             _logger.LogWarning(ex, "Failed to delete status message");
         }
 
-
         try
         {
-            _job.Status = JobStatus.Completed;
+            _job.Status = _cancellationToken.IsCancellationRequested ? JobStatus.Cancelled : JobStatus.Completed;
 
             await _dataContext.SaveChangesAsync();
         }
