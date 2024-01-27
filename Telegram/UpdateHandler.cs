@@ -148,9 +148,25 @@ internal class UpdateHandler : IUpdateHandler
                 return;
             }
 
-            string[] urls = Regex.Matches(messageText, @"https?:\/\/.*?box.*?(?=\s|$)").Select(x => x.Value).ToArray();
+            List<string> urls = new(Regex.Matches(messageText, @"https?:\/\/.*?box.*?(?=\s|$)", RegexOptions.Multiline).Select(x => x.Value).ToArray());
 
-            if (urls.Length == 0)
+            if (message.Entities is not null)
+            {
+                foreach (MessageEntity entity in message.Entities)
+                {
+                    if (entity.Type == MessageEntityType.Url)
+                    {
+                        string url = messageText.Substring(entity.Offset, entity.Length);
+
+                        if (!urls.Contains(url) && url.Contains("box"))
+                        {
+                            urls.Add(url);
+                        }
+                    }
+                }
+            }
+
+            if (urls.Count == 0)
             {
                 _logger.LogInformation("No links found in the message: {messageText}", messageText);
 
@@ -163,7 +179,7 @@ internal class UpdateHandler : IUpdateHandler
                 return;
             }
 
-            _logger.LogInformation("Found {count} links in the message", urls.Length);
+            _logger.LogInformation("Found {count} links in the message", urls.Count);
             foreach (string url in urls)
             {
                 string replyText = $"URL: {url}\nStatus: Queued";
