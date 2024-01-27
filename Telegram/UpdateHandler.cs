@@ -208,6 +208,8 @@ internal class UpdateHandler : IUpdateHandler
                     _logger.LogInformation($"Added job for url: {url}");
 
                     await DownloadJob.ScheduleJob(_schedulerFactory, job.Id);
+
+                    await Task.Delay(200);
                 }
                 catch (Exception ex)
                 {
