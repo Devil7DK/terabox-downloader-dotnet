@@ -9,7 +9,9 @@ internal class TelegramBotCommand
 {
     public static readonly TelegramBotCommand[] Commands = [
         CommonCommands.StartCommand,
-        JobCommands.JobStats
+        ConfigCommands.DownloadMethod,
+        JobCommands.JobStats,
+        JobCommands.Cleanup,
     ];
 
     public string Command { get; set; }
