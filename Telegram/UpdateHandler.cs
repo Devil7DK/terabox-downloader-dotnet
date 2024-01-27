@@ -158,6 +158,11 @@ internal class UpdateHandler : IUpdateHandler
                     {
                         string url = messageText.Substring(entity.Offset, entity.Length);
 
+                        if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            url = "https://" + url;
+                        }
+
                         if (!urls.Contains(url) && url.Contains("box"))
                         {
                             urls.Add(url);
