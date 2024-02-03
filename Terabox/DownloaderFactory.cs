@@ -184,11 +184,11 @@ internal class JobDownloader
 
         IUrlResolver urlResolver = _urlResolverFactory(_job.Chat!.Config!.DownloadMethod);
 
-        ResolvedUrl? resolvedUrl;
+        ResolvedUrl[]? resolvedUrls;
 
         try
         {
-            resolvedUrl = await urlResolver.Resolve(_job.Url, _cancellationToken);
+            resolvedUrls = await urlResolver.Resolve(_job.Url, _cancellationToken);
         }
         catch (Exception ex)
         {
@@ -197,66 +197,74 @@ internal class JobDownloader
             return;
         }
 
-        string filePath = Path.Combine(_configuration.DownloadsPath, resolvedUrl.FileId);
+        _job.DownloadedFiles = new List<DownloadedFile>();
 
-        _logger.LogInformation($"Downloading {resolvedUrl.Url} to {filePath}");
-
-        try
+        foreach (ResolvedUrl resolvedUrl in resolvedUrls)
         {
-            await downloader.DownloadFileTaskAsync(resolvedUrl.Url, filePath, _cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to download file");
-            await UpdateStatus(JobStatus.Failed, ex.Message);
-            return;
-        }
-
-        try
-        {
-            _job.DownloadedFiles = new List<DownloadedFile>() {
-                new DownloadedFile(resolvedUrl.FileName, filePath)
-            };
-
-            await _dataContext.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to save downloaded file list");
-        }
-
-        await UpdateStatus(JobStatus.InProgress, "Uploading file");
-
-        try
-        {
-            await using (Stream fileStream = System.IO.File.OpenRead(filePath))
+            if (_cancellationToken.IsCancellationRequested)
             {
-                await _bot.Client.SendDocumentAsync(
-                    _job.ChatId,
-                    InputFile.FromStream(fileStream, resolvedUrl.FileName),
-                    replyToMessageId: _job.MessageId,
-                    cancellationToken: _cancellationToken,
-                    disableContentTypeDetection: true,
-                    allowSendingWithoutReply: true
-                );
+                await UpdateStatus(JobStatus.Cancelled);
+                return;
             }
 
-            _logger.LogInformation("File uploaded successfully for {url}", _job.Url);
+            string filePath = Path.Combine(_configuration.DownloadsPath, resolvedUrl.FileId);
+
+            _logger.LogInformation($"Downloading {resolvedUrl.Url} to {filePath}");
 
             try
             {
-                System.IO.File.Delete(filePath);
+                await downloader.DownloadFileTaskAsync(resolvedUrl.Url, filePath, _cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete file after upload");
+                _logger.LogError(ex, "Failed to download file");
+                await UpdateStatus(JobStatus.Failed, ex.Message);
+                return;
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to upload file");
-            await UpdateStatus(JobStatus.Failed, "Failed to upload file");
-            return;
+
+            try
+            {
+                _job.DownloadedFiles.Add(new DownloadedFile(resolvedUrl.FileName, filePath));
+                await _dataContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save downloaded file list");
+            }
+
+            await UpdateStatus(JobStatus.InProgress, "Uploading file");
+
+            try
+            {
+                await using (Stream fileStream = System.IO.File.OpenRead(filePath))
+                {
+                    await _bot.Client.SendDocumentAsync(
+                        _job.ChatId,
+                        InputFile.FromStream(fileStream, resolvedUrl.FileName),
+                        replyToMessageId: _job.MessageId,
+                        cancellationToken: _cancellationToken,
+                        disableContentTypeDetection: true,
+                        allowSendingWithoutReply: true
+                    );
+                }
+
+                _logger.LogInformation("File uploaded successfully for {url}", _job.Url);
+
+                try
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete file after upload");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload file");
+                await UpdateStatus(JobStatus.Failed, "Failed to upload file");
+                return;
+            }
         }
 
         try

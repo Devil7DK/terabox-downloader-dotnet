@@ -52,6 +52,10 @@ internal class UpdateHandler : IUpdateHandler
         {
             await HandleMessageAsync(botClient, update, update.Message, cancellationToken);
         }
+        else if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery is not null)
+        {
+            await HandleCallbackQueryAsync(botClient, update, update.CallbackQuery, cancellationToken);
+        }
     }
 
     public async Task HandleMessageAsync(ITelegramBotClient botClient, Update update, Message message, CancellationToken cancellationToken)
@@ -236,5 +240,61 @@ internal class UpdateHandler : IUpdateHandler
                 _logger.LogError(ex, "Error sending message");
             }
         }
+    }
+
+    public async Task HandleCallbackQueryAsync(ITelegramBotClient botClient, Update update, CallbackQuery callbackQuery, CancellationToken cancellationToken)
+    {
+        DataContext dataContext = _dbContextFactory.CreateDbContext();
+
+        _logger.LogInformation($"Received callback query from {callbackQuery.From.Id} ({callbackQuery.From.Username})");
+
+        if (callbackQuery.Data is not null && callbackQuery.Message is not null)
+        {
+            string[] data = callbackQuery.Data.Split(':');
+
+            if (data.Length == 2)
+            {
+                if (data[0] == "DownloadMethod")
+                {
+                    ChatEntity? chat = dataContext.Chats.Include(x => x.Config).FirstOrDefault(x => x.Id == callbackQuery.Message.Chat.Id);
+
+                    if (chat is null)
+                    {
+                        _logger.LogWarning($"Chat {callbackQuery.Message.Chat.Id} not found in database.");
+
+                        await botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "Chat not found in database");
+                        return;
+                    }
+
+                    try
+                    {
+                        if (Enum.TryParse(data[1], out DownloadMethod downloadMethod))
+                        {
+                            chat.Config!.DownloadMethod = downloadMethod;
+
+                            await dataContext.SaveChangesAsync();
+
+                            await botClient.EditMessageTextAsync(
+                                chatId: callbackQuery.Message.Chat.Id,
+                                messageId: callbackQuery.Message.MessageId,
+                                text: $"Current download method is set to `{chat.Config!.DownloadMethod}`"
+                            );
+
+                            await botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "Download method updated");
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to update download method");
+
+                        await botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "Failed to update download method");
+                    }
+                }
+            }
+        }
+
+
+        await botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "Invalid data");
     }
 }

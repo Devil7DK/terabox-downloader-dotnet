@@ -37,11 +37,13 @@ public class Program
          .AddSingleton<IUpdateHandler, UpdateHandler>()
          .AddSingleton<IBot, Bot>()
          .AddSingleton<TeraboxDownloaderDotNetResolver>()
+         .AddSingleton<ReveseryResolver>()
          .AddSingleton<UrlResolverFactory>(services => downloadMethod =>
          {
              return downloadMethod switch
              {
                  DownloadMethod.TeraboxDownloaderDotNet => services.GetRequiredService<TeraboxDownloaderDotNetResolver>(),
+                 DownloadMethod.Revesery => services.GetRequiredService<ReveseryResolver>(),
                  _ => throw new NotSupportedException($"Download method {downloadMethod} is not supported")
              };
          })

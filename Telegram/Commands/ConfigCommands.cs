@@ -13,7 +13,8 @@ internal static class ConfigCommands
         await client.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: $"Current download method is set to `{chat.Config!.DownloadMethod}`. Select a download method:",
-            replyMarkup: new ReplyKeyboardMarkup(downloadMethods.Select(x => new KeyboardButton[] { new KeyboardButton(x) }).ToArray())
+            // replyMarkup: new ReplyKeyboardMarkup(downloadMethods.Select(x => new KeyboardButton[] { new KeyboardButton(x) }).ToArray())
+            replyMarkup: new InlineKeyboardMarkup(downloadMethods.Select(x => new[] { InlineKeyboardButton.WithCallbackData(x, $"DownloadMethod:{x}") }).ToArray())
         );
     });
 }
