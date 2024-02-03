@@ -44,7 +44,7 @@ internal class TeraboxDownloaderDotNetResolver : IUrlResolver
         _logger = logger;
     }
 
-    public async Task<ResolvedUrl> Resolve(string url, CancellationToken cancellationToken)
+    public async Task<ResolvedUrl[]> Resolve(string url, CancellationToken cancellationToken)
     {
         RestResponse<string> htmlResponse = await _client.ExecuteAsync<string>(new RestRequest("/"), cancellationToken);
 
@@ -114,6 +114,9 @@ internal class TeraboxDownloaderDotNetResolver : IUrlResolver
 
         string fileId = new Uri(downloadUrl).GetQueryValue("fid") ?? Guid.NewGuid().ToString();
 
-        return new ResolvedUrl(downloadUrl, fileName, fileId);
+        return new List<ResolvedUrl>()
+        {
+            new ResolvedUrl(downloadUrl, fileName, fileId)
+        }.ToArray();
     }
 }

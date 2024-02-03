@@ -23,7 +23,7 @@ internal interface IUrlResolver
     /// <summary>
     /// Resolves the given Terabox share URL to a direct download URL.
     /// </summary>
-    public Task<ResolvedUrl> Resolve(string url, CancellationToken cancellationToken);
+    public Task<ResolvedUrl[]> Resolve(string url, CancellationToken cancellationToken);
 }
 
 internal delegate IUrlResolver UrlResolverFactory(DownloadMethod method);
