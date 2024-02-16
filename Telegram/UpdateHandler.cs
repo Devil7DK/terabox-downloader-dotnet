@@ -175,6 +175,8 @@ internal class UpdateHandler : IUpdateHandler
                 }
             }
 
+            urls = urls.Distinct().ToList();
+
             if (urls.Count == 0)
             {
                 _logger.LogInformation("No links found in the message: {messageText}", messageText);
